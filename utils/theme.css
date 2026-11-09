@@ -1,0 +1,41 @@
+/*
+ * Nocturne — static dark palette (v0.1 experiment).
+ * Injected before the page's own stylesheets, so `!important` is required
+ * for these few targeted rules to win against equal-specificity page rules.
+ */
+
+:root {
+  /* Lets the browser render native UI (scrollbars, form controls) in dark. */
+  color-scheme: dark !important;
+}
+
+html,
+body {
+  background-color: #121212 !important;
+  color: #e0e0e0 !important;
+}
+
+p,
+li,
+dt,
+dd,
+blockquote,
+figcaption,
+td,
+th,
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  color: #e0e0e0 !important;
+}
+
+a:link {
+  color: #8ab4f8 !important;
+}
+
+a:visited {
+  color: #c58af9 !important;
+}
