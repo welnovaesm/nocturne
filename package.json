@@ -14,7 +14,9 @@
     "compile": "tsc --noEmit",
     "test": "vitest run",
     "bench": "node bench/serve.mjs",
+    "bench:build": "wxt zip -b firefox && node bench/build-variants.mjs",
     "bench:run": "wxt zip -b firefox && node bench/run.mjs",
+    "bench:isolate": "pnpm bench:build && node bench/run.mjs --scenarios baseline,bootstrap,injection,nocturne --rounds 4",
     "postinstall": "wxt prepare"
   },
   "devDependencies": {

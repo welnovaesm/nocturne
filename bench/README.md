@@ -110,6 +110,60 @@ the absence of the theme tag and the absence of `[Nocturne]` console lines.
 - Early runs can show large variance (a cold first session). Check min/max in the report.
 - Always inspect the screenshots: a visually incomplete dark theme does less work.
 
+## Isolation experiment (baseline / bootstrap / injection / nocturne)
+
+```bash
+pnpm bench:isolate                     # builds all variants, then 4 scenarios x 4 rounds
+pnpm bench:isolate --sizes 100 --runs 3 --warmup 1 --rounds 2   # quick check
+pnpm bench:build                       # only (re)build the zips
+```
+
+Goal: find out which part of the overhead seen with Nocturne comes from what.
+
+| Scenario | What is installed | What differs from the previous step |
+|----------|-------------------|--------------------------------------|
+| `baseline` | nothing | n/a |
+| `bootstrap` | the production extension, but `applyTheme()` is a no-op | the extension and its content script exist; the page is never touched |
+| `injection` | the production extension with a tiny stylesheet (`bench/variants/minimal.css`, one rule on `html`) | same code path as production, one `<style>` tag, almost no rules |
+| `nocturne` | the regular production build | the full stylesheet (`utils/theme.css`) |
+
+**How the variants are built.** `bench/wxt.variants.config.ts` is a second WXT config (used with
+`wxt zip -c`) that reuses *all* production entrypoints (content script, background, popup) and
+only swaps one module at resolution time with a small Vite plugin: `utils/theme` becomes the
+no-op module for `bootstrap`, `./theme.css?raw` becomes `minimal.css` for `injection`. Production
+sources are not modified, the manifest differs only in `name`, and `.output/` is untouched.
+`bench/build-variants.mjs` builds both variants into `.output-bench/<variant>/` and fails if
+the bundle does not contain what the variant must (or still contains the production palette).
+It also runs `wxt prepare` at the end, because variant builds rewrite `.wxt/tsconfig.json`.
+
+**Identity checks (per run, per session).** Every navigation hashes the text of
+`#nocturne-theme` in the page and compares it with the SHA-256 of the expected stylesheet file;
+scenarios without a stylesheet must have no such tag. Each session also checks the number of
+`[Nocturne] initialized` console lines (one per navigation) and their `themeApplied=` value,
+the manifest name of the build, and that the add-on was installed. The build zips' SHA-256 and
+the `content.js` sizes are recorded in `results.json`. A stale or wrong build is reported as
+invalid (verified by deliberately changing `minimal.css` without rebuilding).
+
+**Sessions and order.** Each (scenario, round) is a fresh Firefox session with a fresh profile.
+`--rounds N` repeats the whole set; the scenario order changes every round following a
+Williams design (`scenarioOrder` in `bench/aggregate.mjs`). With four scenarios, four rounds put every
+scenario in every position once and every ordered pair of neighbours once. Statistics pool the
+measured runs of all rounds. The report also lists per-session medians and *paired* differences
+(candidate − reference within the same round) to expose session-to-session variation.
+Previous result directories are never overwritten (`results.json` existing in `--out` is an error).
+
+**Caveats specific to these variants**
+- `bootstrap` still runs the WXT content-script wrapper, reads `document.readyState` and calls
+  `console.log`. Everything done by `main()` except `applyTheme()` is therefore included in
+  its cost; the console call is observed by the BiDi log subscription that the runner
+  uses in every scenario (including the baseline, where only the page's own logs exist).
+- `injection` is nearly invisible: the page's own `body` background hides the dark `html`
+  background, so mostly the scroll-bar gutter changes. It measures the mechanism of injecting a
+  stylesheet, not the cost of painting a dark page.
+- The baseline has no extension at all, so *any* cost of having a document_start content script
+  at all shows up in `bootstrap`.
+- None of this is CPU time, style recalculation, layout or paint cost (see below).
+
 ## Scenarios
 
 Use one dedicated Firefox profile per scenario for **manual** profiling. This keeps the extension set, settings and

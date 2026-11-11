@@ -1,0 +1,4 @@
+/* Benchmark variant "injection": the smallest stylesheet that still produces a visible change. */
+html {
+  background-color: #121212 !important;
+}
